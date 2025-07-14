@@ -1,23 +1,40 @@
-import logo from './logo.svg';
-import './App.css';
+// App.js
+import React, { useEffect, useState } from 'react';
+import { redirectToSpotifyLogin, getAccessToken } from './auth/SpotifyAuth';
+import Playlists from "./components/Playlists";
 
 function App() {
+  const [token, setToken] = useState(null);
+
+  useEffect(() => {
+    const accessToken = localStorage.getItem('access_token');
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+
+    if (accessToken) {
+      setToken(accessToken);
+    } else if (code) {
+      getAccessToken(code).then((token) => {
+        if (token) {
+          setToken(token);
+          window.history.replaceState({}, document.title, "/");
+        }
+      });
+    } else {
+      redirectToSpotifyLogin(); // guarda code_verifier y redirige
+    }
+  }, []);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      {token ? (
+        <>
+          <h2>✅ Token obtenido con éxito</h2>
+          <Playlists token={token} />
+        </>
+      ) : (
+        <h2>🔄 Redirigiendo a Spotify...</h2>
+      )}
     </div>
   );
 }
