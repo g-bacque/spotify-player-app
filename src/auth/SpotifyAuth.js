@@ -3,7 +3,14 @@ import { generateRandomString, generateCodeChallenge } from './Helpers';
 
 const CLIENT_ID = '61426bb5caf84efe8690b2ef870b77e6';
 const REDIRECT_URI = 'http://127.0.0.1:3000';
-const SCOPES = ['user-read-private', 'user-read-email']; // Añade los que necesites
+const SCOPES = [
+  'user-read-private',
+  'user-read-email',
+  'streaming',
+  'user-modify-playback-state',
+  'user-read-playback-state'
+];
+
 
 export async function redirectToSpotifyLogin() {
   const codeVerifier = generateRandomString(128);
