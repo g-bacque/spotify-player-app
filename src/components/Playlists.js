@@ -1,5 +1,8 @@
 // components/Playlists.js
 import React, { useEffect, useState } from 'react';
+import './Playlists.css'; // Importamos el CSS externo
+import './styles/minimal.css';
+
 
 function Playlists({ token, onSelect }) {
   const [playlists, setPlaylists] = useState([]);
@@ -23,14 +26,14 @@ function Playlists({ token, onSelect }) {
   }, [token]);
 
   return (
-    <div>
+    <div className="container">
       <h3>🎵 Tus playlists</h3>
-      <ul>
+      <ul className="playlist-list">
         {playlists.map((playlist) => (
           <li
             key={playlist.id}
+            className="playlist-item"
             onClick={() => onSelect(playlist.id)}
-            style={{ cursor: 'pointer', margin: '10px 0', color: 'blue' }}
           >
             {playlist.name}
           </li>

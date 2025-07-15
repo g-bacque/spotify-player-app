@@ -1,0 +1,62 @@
+/* styles/retro.css */
+body {
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: 'Courier New', Courier, monospace;
+    letter-spacing: 1px;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .vhs-container {
+    padding: 30px;
+    max-width: 600px;
+    margin: 0 auto;
+    border: 2px solid #444;
+    background-color: rgba(0, 0, 0, 0.9);
+    box-shadow: 0 0 15px rgba(255, 0, 255, 0.2);
+    position: relative;
+  }
+  
+  .vhs-title {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    color: #b0ffb0;
+    text-shadow: 1px 1px 3px #00ff99;
+  }
+  
+  .vhs-playlist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .vhs-playlist li {
+    margin-bottom: 15px;
+    padding: 12px;
+    background-color: #1c1c1c;
+    border-left: 5px solid #ff00ff;
+    transition: all 0.3s;
+    cursor: pointer;
+    text-shadow: 0 0 2px #f0f;
+  }
+  
+  .vhs-playlist li:hover {
+    background-color: #292929;
+    border-left: 5px solid #00ffff;
+    color: #00ffff;
+  }
+  
+  .vhs-grain {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('https://grainy-gradients.vercel.app/noise.svg');
+    opacity: 0.05;
+    pointer-events: none;
+    z-index: 999;
+  }
+  
