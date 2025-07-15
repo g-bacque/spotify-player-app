@@ -91,11 +91,17 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
     }
   };
   
+  useEffect(() => {
+    if (isPlayingPlaylist) {
+      playTrackAtIndex(0);
+    }
+  }, [isPlayingPlaylist]);
+  
 
   const playFullPlaylist = () => {
-    setIsPlayingPlaylist(true);
-    playTrackAtIndex(0);
+    setIsPlayingPlaylist(true); // Esto ahora solo dispara el efecto
   };
+  
 
   const nextTrack = () => {
     if (currentTrackIndex + 1 < tracks.length) {
