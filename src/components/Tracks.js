@@ -128,8 +128,38 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
       <div style={{ marginTop: '20px' }}>
         <button onClick={pauseTrack}>⏸ Pause</button>
         <div>
-          <progress value={progress} max={duration} style={{ width: '300px' }} />
-          <div>{formatMs(progress)} / {formatMs(duration)}</div>
+<div
+  style={{
+    position: 'relative',
+    width: '300px',
+    height: '10px',
+    background: '#ccc',
+    cursor: 'pointer',
+    marginBottom: '8px',
+  }}
+  onClick={(e) => {
+    if (!player || !duration) return;
+
+    const rect = e.target.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickPosition = (clickX / rect.width) * duration;
+
+    player.seek(clickPosition);
+    setProgress(clickPosition);
+  }}
+>
+  <div
+    style={{
+      position: 'absolute',
+      height: '100%',
+      width: `${(progress / duration) * 100}%`,
+      background: '#1DB954',
+    }}
+  />
+</div>
+<div>{formatMs(progress)} / {formatMs(duration)}</div>
+
+
         </div>
       </div>
     </div>
