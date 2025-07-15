@@ -2,7 +2,7 @@
 import { generateRandomString, generateCodeChallenge } from './Helpers';
 
 const CLIENT_ID = '61426bb5caf84efe8690b2ef870b77e6';
-const REDIRECT_URI = 'http://127.0.0.1:3000';
+const REDIRECT_URI = 'https://spotifycrossfadeplayer.netlify.app';
 const SCOPES = [
   'user-read-private',
   'user-read-email',
