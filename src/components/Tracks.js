@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 function Tracks({ token, playlistId, onBack, deviceId, player }) {
   const [tracks, setTracks] = useState([]);
@@ -9,7 +9,24 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
   const [isPaused, setIsPaused] = useState(true);
   const [isPlayingPlaylist, setIsPlayingPlaylist] = useState(false);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-  const timeoutRef = useRef(null);
+  const timeoutRef = useRef(null); // 👈 Nuevo: controlar el avance automático
+
+  const fadeVolume = async (from, to, duration = 3000) => {
+    if (!player) return;
+  
+    const steps = 30;
+    const stepTime = duration / steps;
+    const volumeStep = (to - from) / steps;
+  
+    for (let i = 0; i <= steps; i++) {
+      setTimeout(() => {
+        const newVolume = Math.min(1, Math.max(0, from + volumeStep * i));
+        player.setVolume(newVolume);
+      }, i * stepTime);
+    }
+  };
+  
+  
 
   useEffect(() => {
     async function fetchTracks() {
@@ -27,88 +44,79 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
     fetchTracks();
   }, [token, playlistId]);
 
-  const playTrackAtIndex = useCallback(
-    async (index, shouldAutoAdvance = true) => {
-      if (!deviceId || !tracks[index]) return;
+  const playTrackAtIndex = async (index, shouldAutoAdvance = true) => {
+    if (!deviceId || !tracks[index]) return;
   
-      // Limpiar timeout anterior
-      if (timeoutRef.current) {
-        console.log(`🧹 Limpiando timeout anterior del track ${currentTrackIndex}`);
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+    // 🔁 Siempre limpiar el timeout anterior
+    if (timeoutRef.current) {
+      console.log(`🧹 Limpiando timeout anterior del track ${currentTrackIndex}`);
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
   
-      const track = tracks[index];
-      const durationMs = track.duration_ms;
-      const thirdDuration = Math.floor(durationMs / 3);
-      const fadeDuration = 3000;
+    const track = tracks[index];
+    const durationMs = track.duration_ms;
+    const thirdDuration = Math.floor(durationMs / 3); // ⏱️ Un tercio
+    const fadeDuration = 3000; // 3 segundos de crossfade
   
-      try {
-        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ uris: [track.uri] }),
-        });
+    try {
+      await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ uris: [track.uri] }),
+      });
   
-        setCurrentTrackUri(track.uri);
-        setCurrentTrackIndex(index);
-        setIsPaused(false);
+      setCurrentTrackUri(track.uri);
+      setCurrentTrackIndex(index);
+      setIsPaused(false);
+      startProgressTracking();
   
-        // 🔁 Inicia tracking de progreso aquí directamente
-        if (intervalId) clearInterval(intervalId);
-        const id = setInterval(async () => {
-          const state = await player.getCurrentState();
-          if (state) {
-            setProgress(state.position);
-            setDuration(state.duration);
-          }
-        }, 1000);
-        setIntervalId(id);
-  
-        // Auto-avance
-        if (shouldAutoAdvance && index + 1 < tracks.length && isPlayingPlaylist) {
-          console.log(`⏱️ Nuevo timeout para avanzar del track ${index} al ${index + 1} en ${thirdDuration - fadeDuration}ms`);
-          timeoutRef.current = setTimeout(() => {
+      // ✅ Sólo programar auto-avance si se permite
+      if (shouldAutoAdvance && index + 1 < tracks.length && isPlayingPlaylist) {
+        console.log(`⏱️ Nuevo timeout para avanzar del track ${index} al ${index + 1} en ${thirdDuration - fadeDuration}ms`);
+        timeoutRef.current = setTimeout(() => {
+          fadeVolume(1, 0.2, fadeDuration); // 🔈 fade out
+          setTimeout(() => {
+            fadeVolume(0.2, 1, fadeDuration); // 🔊 fade in
             playTrackAtIndex(index + 1, true);
-          }, thirdDuration - fadeDuration);
-        }
-      } catch (error) {
-        console.error("❌ Error reproduciendo track:", error);
+          }, fadeDuration);
+        }, thirdDuration - fadeDuration);
+        
       }
-    },
-    [deviceId, tracks, isPlayingPlaylist, currentTrackIndex, token, player, intervalId]
-  );
+    } catch (error) {
+      console.error("❌ Error reproduciendo track:", error);
+    }
+  };
   
-  
-
-  useEffect(() => {
-    // Este es un ejemplo de efecto que podría haber causado el warning
-    // Si no usás playTrackAtIndex en ningún useEffect, podés ignorar esto.
-    // En caso de necesitar uno, aquí está el patrón correcto:
-    // useEffect(() => {
-    //   // alguna lógica si necesitás activar algo al cargar
-    // }, [playTrackAtIndex]);
-  }, [playTrackAtIndex]);
 
   const playFullPlaylist = () => {
+    if (timeoutRef.current) {
+      console.log("🧹 Limpiando timeout antes de iniciar nueva playlist");
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  
     setIsPlayingPlaylist(true);
     playTrackAtIndex(0);
   };
+  
 
   const nextTrack = () => {
     if (currentTrackIndex + 1 < tracks.length) {
-      playTrackAtIndex(currentTrackIndex + 1, false);
+      playTrackAtIndex(currentTrackIndex + 1, true); // ✅ reinicia timeout
     }
   };
-
+  
   const previousTrack = () => {
     if (currentTrackIndex - 1 >= 0) {
-      playTrackAtIndex(currentTrackIndex - 1, false);
+      playTrackAtIndex(currentTrackIndex - 1, true); // ✅ reinicia timeout
     }
   };
+  
+  
 
   const pauseTrack = async () => {
     if (player) {
@@ -118,7 +126,20 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
     }
   };
 
+  const startProgressTracking = () => {
+    if (!player) return;
+    stopProgressTracking();
 
+    const id = setInterval(async () => {
+      const state = await player.getCurrentState();
+      if (state) {
+        setProgress(state.position);
+        setDuration(state.duration);
+      }
+    }, 1000);
+
+    setIntervalId(id);
+  };
 
   const stopProgressTracking = () => {
     if (intervalId) {
@@ -132,6 +153,16 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
     const sec = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
     return `${min}:${sec}`;
   };
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        console.log("🧹 Limpiando timeout al desmontar el componente Tracks");
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
+  
 
   return (
     <div>
@@ -153,7 +184,8 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
             {currentTrackUri === track.uri && !isPaused ? (
               <button onClick={pauseTrack}>⏸️</button>
             ) : (
-              <button onClick={() => playTrackAtIndex(tracks.findIndex(t => t.uri === track.uri), false)}>▶️</button>
+              <button onClick={() => playTrackAtIndex(tracks.findIndex(t => t.uri === track.uri), true)}>▶️</button>
+
             )}
           </li>
         ))}
@@ -196,4 +228,3 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
 }
 
 export default Tracks;
-
