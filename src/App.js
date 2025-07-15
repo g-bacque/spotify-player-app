@@ -2,9 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { redirectToSpotifyLogin, getAccessToken } from './auth/SpotifyAuth';
 import Playlists from "./components/Playlists";
+import Tracks from "./components/Tracks";
 
 function App() {
   const [token, setToken] = useState(null);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
 
   useEffect(() => {
     const accessToken = localStorage.getItem('access_token');
@@ -30,7 +32,11 @@ function App() {
       {token ? (
         <>
           <h2>✅ Token obtenido con éxito</h2>
-          <Playlists token={token} />
+          {!selectedPlaylistId ? (
+            <Playlists token={token} onSelect={setSelectedPlaylistId}  />
+          ) : (
+            <Tracks token={token} playlistId={selectedPlaylistId} onBack={() => setSelectedPlaylistId(null)}/>
+          )}
         </>
       ) : (
         <h2>🔄 Redirigiendo a Spotify...</h2>
@@ -40,3 +46,4 @@ function App() {
 }
 
 export default App;
+
