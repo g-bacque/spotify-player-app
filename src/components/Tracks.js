@@ -95,7 +95,7 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
     if (isPlayingPlaylist) {
       playTrackAtIndex(0);
     }
-  }, [isPlayingPlaylist]);
+  }, [isPlayingPlaylist, playTrackAtIndex]);
   
 
   const playFullPlaylist = () => {
