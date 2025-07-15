@@ -7,8 +7,8 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
   const [intervalId, setIntervalId] = useState(null);
   const [currentTrackUri, setCurrentTrackUri] = useState(null);
   const [isPaused, setIsPaused] = useState(true);
-
-  
+  const [isPlayingPlaylist, setIsPlayingPlaylist] = useState(false);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
 
   useEffect(() => {
     async function fetchTracks() {
@@ -26,28 +26,49 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
     fetchTracks();
   }, [token, playlistId]);
 
+  useEffect(() => {
+    if (!player || !isPlayingPlaylist) return;
+
+    const handleStateChange = async (state) => {
+      if (!state || !state.track_window?.current_track) return;
+
+      const track = state.track_window.current_track;
+      const halfDuration = Math.floor(track.duration_ms / 2);
+
+      console.log(`🎶 Playing: ${track.name}, will skip in ${halfDuration} ms`);
+
+      if (window.halfTimeout) clearTimeout(window.halfTimeout);
+
+      window.halfTimeout = setTimeout(() => {
+        if (currentTrackIndex + 1 < tracks.length && isPlayingPlaylist) {
+          playTrackAtIndex(currentTrackIndex + 1);
+        } else {
+          setIsPlayingPlaylist(false);
+          stopProgressTracking();
+        }
+      }, halfDuration);
+    };
+
+    player.addListener('player_state_changed', handleStateChange);
+
+    return () => {
+      player.removeListener('player_state_changed', handleStateChange);
+      if (window.halfTimeout) clearTimeout(window.halfTimeout);
+    };
+  }, [player, isPlayingPlaylist, currentTrackIndex, tracks]);
+
   const playTrack = async (trackUri) => {
-    if (!player || !deviceId) {
-      console.error("🔌 Player o Device ID no disponible");
-      return;
-    }
-  
+    if (!player || !deviceId) return;
+
     const state = await player.getCurrentState();
-  
-    // Si la pista actual es la misma y está pausada, reanudar
-    if (
-      state &&
-      state.track_window.current_track.uri === trackUri &&
-      isPaused
-    ) {
+
+    if (state && state.track_window.current_track.uri === trackUri && isPaused) {
       await player.resume();
       setIsPaused(false);
-      console.log("▶️ Reanudando pista");
       startProgressTracking();
       return;
     }
-  
-    // Si es una pista nueva o el player está vacío
+
     try {
       await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
         method: 'PUT',
@@ -57,31 +78,26 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
         },
         body: JSON.stringify({ uris: [trackUri] }),
       });
-  
+
       setCurrentTrackUri(trackUri);
       setIsPaused(false);
-      console.log("🎵 Reproduciendo nueva pista");
       startProgressTracking();
     } catch (error) {
       console.error("❌ Error al reproducir pista:", error);
     }
   };
-  
 
   const pauseTrack = async () => {
     if (player) {
       await player.pause();
       setIsPaused(true);
-      console.log("⏸️ Pausado");
       stopProgressTracking();
     }
   };
-  
 
   const startProgressTracking = () => {
     if (!player) return;
-
-    stopProgressTracking(); // Evita duplicados
+    stopProgressTracking();
 
     const id = setInterval(async () => {
       const state = await player.getCurrentState();
@@ -107,60 +123,83 @@ function Tracks({ token, playlistId, onBack, deviceId, player }) {
     return `${min}:${sec}`;
   };
 
+  const playTrackAtIndex = async (index) => {
+    if (!deviceId || !tracks[index]) return;
+
+    const track = tracks[index];
+    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ uris: [track.uri] }),
+    });
+
+    setCurrentTrackUri(track.uri);
+    setIsPaused(false);
+    setCurrentTrackIndex(index);
+    startProgressTracking();
+  };
+
+  const playFullPlaylist = () => {
+    setIsPlayingPlaylist(true);
+    playTrackAtIndex(0);
+  };
+
   return (
     <div>
       <button onClick={onBack}>🔙 Volver</button>
+      <div style={{ marginBottom: '10px' }}>
+        <button onClick={playFullPlaylist}>▶️ Reproducir Playlist</button>
+      </div>
+
       <h3>🎧 Tracks</h3>
       <ul>
         {tracks.map((track) => (
           <li key={track.id}>
             {track.name} — {track.artists[0]?.name}
             {currentTrackUri === track.uri && !isPaused ? (
-            <button onClick={pauseTrack}>⏸️</button>
+              <button onClick={pauseTrack}>⏸️</button>
             ) : (
-            <button onClick={() => playTrack(track.uri)}>▶️</button>
+              <button onClick={() => playTrack(track.uri)}>▶️</button>
             )}
-
           </li>
         ))}
       </ul>
 
       <div style={{ marginTop: '20px' }}>
         <button onClick={pauseTrack}>⏸ Pause</button>
-        <div>
-<div
-  style={{
-    position: 'relative',
-    width: '300px',
-    height: '10px',
-    background: '#ccc',
-    cursor: 'pointer',
-    marginBottom: '8px',
-  }}
-  onClick={(e) => {
-    if (!player || !duration) return;
+        <div
+          style={{
+            position: 'relative',
+            width: '300px',
+            height: '10px',
+            background: '#ccc',
+            cursor: 'pointer',
+            marginBottom: '8px',
+          }}
+          onClick={(e) => {
+            if (!player || !duration) return;
 
-    const rect = e.target.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickPosition = (clickX / rect.width) * duration;
+            const rect = e.target.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickPosition = (clickX / rect.width) * duration;
 
-    player.seek(clickPosition);
-    setProgress(clickPosition);
-  }}
->
-  <div
-    style={{
-      position: 'absolute',
-      height: '100%',
-      width: `${(progress / duration) * 100}%`,
-      background: '#1DB954',
-    }}
-  />
-</div>
-<div>{formatMs(progress)} / {formatMs(duration)}</div>
-
-
+            player.seek(clickPosition);
+            setProgress(clickPosition);
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              height: '100%',
+              width: `${(progress / duration) * 100}%`,
+              background: '#1DB954',
+            }}
+          />
         </div>
+        <div>{formatMs(progress)} / {formatMs(duration)}</div>
       </div>
     </div>
   );
